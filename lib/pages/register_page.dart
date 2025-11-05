@@ -1,11 +1,15 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'package:fluttertoast/fluttertoast.dart';
+import '../common/base_navigation.dart';
+
 
 class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
   @override
-  _RegisterPageState createState() => _RegisterPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
@@ -15,53 +19,111 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
+  bool _isLoading = false;
 
-  void _togglePasswordVisibility() {
-    setState(() {
-      _obscurePassword = !_obscurePassword;
-    });
-  }
+  String _passwordStrengthText = '';
+  Color _passwordStrengthColor = Colors.red;
 
-  void _toggleConfirmPasswordVisibility() {
-    setState(() {
-      _obscureConfirmPassword = !_obscureConfirmPassword;
-    });
+  void _updatePasswordStrength(String password) {
+    if (password.isEmpty) {
+      _passwordStrengthText = '';
+    } else if (password.length < 6) {
+      _passwordStrengthText = 'Weak (min 6 chars)';
+      _passwordStrengthColor = Colors.red;
+    } else {
+      _passwordStrengthText = 'Good';
+      _passwordStrengthColor = Colors.green;
+    }
+    setState(() {});
   }
 
   Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      final username = _usernameController.text.trim();
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
+    if (!_formKey.currentState!.validate()) return;
 
-    // Hash the password using SHA-256
-    final hashedPassword = sha256.convert(utf8.encode(password)).toString();
+    setState(() {
+      _isLoading = true;
+    });
 
-    final url = Uri.parse('http://pro-xi-mi-ty-srv/api/register');
+    try {
+      final response = await http.post(
+        Uri.parse('http://pro-xi-mi-ty-srv/api/register'),
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(<String, String>{
+          'username': _usernameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        }),
+      );
 
-    final response = await http.post(
-    url,
-    headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    },
-    body: jsonEncode({
-    'username': username,
-    'email': email,
-    'password': hashedPassword,
-    }),
-    );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Fluttertoast.showToast(
+          msg: "User created! Please check your email to verify your account.",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 3,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-    // Registration successful
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration successful!')));
-    } else {
-    // Error
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration failed: ${response.body}')));
+        await Future.delayed(const Duration(seconds: 3));
+
+        // Switch tab back to OverviewRunPage (Home tab) in BaseNavigation
+        if (BaseNavigation.globalKey.currentState != null) {
+          BaseNavigation.globalKey.currentState!.navigateToTab(2); // 2 = Home tab index
+          Navigator.of(context); // Close the RegisterPage
+        }
+      } else {
+        String message = 'Unknown error';
+        try {
+          final error = jsonDecode(response.body);
+          if (error is Map<String, dynamic> && error.containsKey('message')) {
+            message = error['message'];
+          }
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $message')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) return 'E-Mail cannot be empty';
+    final emailRegex = RegExp(r'^[\w-.]+@([\w-]+.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value)) return 'Enter a valid email address';
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Password cannot be empty';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value != _passwordController.text) return 'Passwords do not match';
+    return null;
+  }
+
+  String? _validateUsername(String? value) {
+    if (value == null || value.isEmpty) return 'Username cannot be empty';
+    if (value.length > 255) return 'Username must be less than 256 characters';
+    return null;
   }
 
   @override
@@ -69,105 +131,109 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Form(
-              key: _formKey,
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
 // Logo
-                  Image.asset('assets/logo.png', height: 100),
-              SizedBox(height: 16),
-
-          // App Name
-          Text('Puzzle Quest', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-
-          SizedBox(height: 32),
-
-          // Username
-          TextFormField(
-            controller: _usernameController,
-            decoration: InputDecoration(labelText: 'Username', border: OutlineInputBorder()),
-            maxLength: 255,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter a username';
-              if (value.length > 255) return 'Username cannot be longer than 255 characters';
-              return null;
-            },
-          ),
-
-          SizedBox(height: 16),
-
-          // Email
-          TextFormField(
-            controller: _emailController,
-            decoration: InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter an email';
-              final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-              if (!emailRegex.hasMatch(value)) return 'Enter a valid email';
-              return null;
-            },
-          ),
-
-          SizedBox(height: 16),
-
-          // Password
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              border: OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                onPressed: _togglePasswordVisibility,
-              ),
+                Image.asset('assets/logo.png', height: 100),
+                const SizedBox(height: 16),
+// App Name
+                const Text(
+                  'Puzzle Quest',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 32),
+// Username
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: _validateUsername,
+                ),
+                const SizedBox(height: 16),
+// Email
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'E-Mail',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: _validateEmail,
+                ),
+                const SizedBox(height: 16),
+// Password
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: !_passwordVisible,
+                  onChanged: _updatePasswordStrength,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _passwordVisible = !_passwordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: _validatePassword,
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _passwordStrengthText,
+                    style: TextStyle(color: _passwordStrengthColor),
+                  ),
+                ),
+                const SizedBox(height: 16),
+// Confirm Password
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: !_confirmPasswordVisible,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _confirmPasswordVisible = !_confirmPasswordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: _validateConfirmPassword,
+                ),
+                const SizedBox(height: 32),
+              // Register Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _register,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                      color: Colors.white,
+                    )
+                        : const Text('Register'),
+                  ),
+                ),
+              ],
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter a password';
-              if (value.length < 6) return 'Password must be at least 6 characters';
-              return null;
-            },
           ),
-
-          SizedBox(height: 16),
-
-          // Confirm Password
-          TextFormField(
-            controller: _confirmPasswordController,
-            obscureText: _obscureConfirmPassword,
-            decoration: InputDecoration(
-              labelText: 'Confirm Password',
-              border: OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                onPressed: _toggleConfirmPasswordVisibility,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Please confirm your password';
-              if (value != _passwordController.text) return 'Passwords do not match';
-              return null;
-            },
-          ),
-
-          SizedBox(height: 32),
-
-          // Register Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _register,
-              child: Text('Register'),
-            ),
-          ),
-          ],
         ),
       ),
-    ),
-    ),
     );
   }
 }

@@ -3,10 +3,13 @@ import '../pages/history_page.dart';
 import '../pages/create_run_page.dart';
 import '../pages/overview_run_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/register_page.dart';
 import '../pages/settings_page.dart';
 
 class BaseNavigation extends StatefulWidget {
   const BaseNavigation({super.key});
+
+  static final GlobalKey<_BaseNavigationState> globalKey = GlobalKey<_BaseNavigationState>();
 
   @override
   State<BaseNavigation> createState() => _BaseNavigationState();
@@ -19,7 +22,7 @@ class _BaseNavigationState extends State<BaseNavigation> {
     const HistoryPage(),
     const CreateRunPage(),
     const OverviewRunPage(),
-    const ProfilePage(),
+    const RegisterPage(),
     const SettingsPage(),
   ];
 
@@ -27,6 +30,10 @@ class _BaseNavigationState extends State<BaseNavigation> {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  void navigateToTab(int index) {
+    _onTabSelected(index);
   }
 
   @override
@@ -41,26 +48,11 @@ class _BaseNavigationState extends State<BaseNavigation> {
         onTap: _onTabSelected,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.access_time),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.access_time), label: 'History'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Create'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
         showSelectedLabels: false,
         showUnselectedLabels: false,
