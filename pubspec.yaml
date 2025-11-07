@@ -8,6 +8,7 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  shared_preferences: ^2.2.3
   flutter:
     sdk: flutter
 
@@ -33,3 +34,7 @@ flutter:
 
   assets:
     - assets/logo.png            # App logo asset
+    - assets/maleDefault.png            # App logo asset
+    - assets/femaleDefault.png            # App logo asset
+    - assets/androgynousDefault.png            # App logo asset
+    - assets/genderfluidDefault.png            # App logo asset
