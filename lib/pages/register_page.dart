@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../common/base_navigation.dart';
-
+import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -71,13 +71,15 @@ class _RegisterPageState extends State<RegisterPage> {
           fontSize: 16.0,
         );
 
-        await Future.delayed(const Duration(seconds: 3));
+        await Future.delayed(const Duration(seconds: 2));
 
-        // Switch tab back to OverviewRunPage (Home tab) in BaseNavigation
-        if (BaseNavigation.globalKey.currentState != null) {
-          BaseNavigation.globalKey.currentState!.navigateToTab(2); // 2 = Home tab index
-          Navigator.of(context); // Close the RegisterPage
-        }
+        if (!mounted) return;
+
+        // Navigate to Login Page after registration
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
       } else {
         String message = 'Unknown error';
         try {
@@ -101,10 +103,9 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'E-Mail cannot be empty';
-    final emailRegex = RegExp(r'^[\w-.]+@([\w-]+.)+[\w-]{2,4}$');
+    final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value)) return 'Enter a valid email address';
     return null;
   }
@@ -137,16 +138,15 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-// Logo
                 Image.asset('assets/logo.png', height: 100),
                 const SizedBox(height: 16),
-// App Name
                 const Text(
                   'Puzzle Quest',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 32),
-// Username
+
+                // Username
                 TextFormField(
                   controller: _usernameController,
                   decoration: const InputDecoration(
@@ -156,7 +156,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: _validateUsername,
                 ),
                 const SizedBox(height: 16),
-// Email
+
+                // Email
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -166,7 +167,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: _validateEmail,
                 ),
                 const SizedBox(height: 16),
-// Password
+
+                // Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_passwordVisible,
@@ -176,7 +178,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                        _passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -196,7 +200,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-// Confirm Password
+
+                // Confirm Password
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: !_confirmPasswordVisible,
@@ -205,7 +210,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        _confirmPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -217,15 +224,14 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: _validateConfirmPassword,
                 ),
                 const SizedBox(height: 32),
-              // Register Button
+
+                // Register Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _register,
                     child: _isLoading
-                        ? const CircularProgressIndicator(
-                      color: Colors.white,
-                    )
+                        ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Register'),
                   ),
                 ),

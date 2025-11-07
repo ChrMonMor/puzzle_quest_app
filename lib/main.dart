@@ -17,7 +17,7 @@ class PuzzleQuestApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-        home: BaseNavigation(key: BaseNavigation.globalKey), // Start with your navigation shell
+        home: BaseNavigation(),
     );
   }
 }
