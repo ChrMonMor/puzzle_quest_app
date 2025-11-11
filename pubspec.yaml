@@ -16,6 +16,7 @@ dependencies:
   fluttertoast: ^8.2.4           # Toast notifications
   http: ^0.13.6                  # HTTP requests
   crypto: any                    # Cryptographic utilities
+  intl: ^0.18.1                  # DateFormat for lib/pages/history_page.dart
 
 dev_dependencies:
   flutter_test:
@@ -34,7 +35,7 @@ flutter:
 
   assets:
     - assets/logo.png            # App logo asset
-    - assets/maleDefault.png            # App logo asset
-    - assets/femaleDefault.png            # App logo asset
-    - assets/androgynousDefault.png            # App logo asset
-    - assets/genderfluidDefault.png            # App logo asset
+    - assets/maleDefault.png            # Male profile picture asset
+    - assets/femaleDefault.png            # Female profile picture asset
+    - assets/androgynousDefault.png            # Androgynous profile picture asset
+    - assets/genderfluidDefault.png            # Genderfluid profile picture asset

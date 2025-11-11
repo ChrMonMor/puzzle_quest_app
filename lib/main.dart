@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'common/base_navigation.dart';
 
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 void main() {
   runApp(const PuzzleQuestApp());
 }
@@ -17,6 +19,7 @@ class PuzzleQuestApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
+      navigatorObservers: [routeObserver],
         home: BaseNavigation(),
     );
   }

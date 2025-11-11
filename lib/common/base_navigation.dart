@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../pages/history_page.dart';
 import '../pages/create_run_page.dart';
 import '../pages/overview_run_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/settings_page.dart';
 import '../pages/login_page.dart';
-import '../pages/register_page.dart';
 import 'session_manager.dart';
 
 class BaseNavigation extends StatefulWidget {
