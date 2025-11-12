@@ -87,7 +87,6 @@ class _CreateRunPageState extends State<CreateRunPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

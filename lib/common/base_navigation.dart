@@ -47,13 +47,14 @@ class _BaseNavigationState extends State<BaseNavigation> {
   }
 
   void _onTabSelected(int index) {
-    if (!_loggedIn && (index == 0 || index == 1 || index == 3)) {
+    if (!_loggedIn && (index == 0 || index == 1 || index == 3 || index == 4)) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
       );
       return;
     }
+
 
     if (index == _currentIndex) {
       _navigatorKeys[index]
@@ -129,8 +130,9 @@ class _BaseNavigationState extends State<BaseNavigation> {
                   color: _loggedIn ? null : Colors.grey),
               label: 'Profile',
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined,
+                  color: _loggedIn ? null : Colors.grey),
               label: 'Settings',
             ),
           ],
