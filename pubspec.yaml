@@ -15,11 +15,11 @@ dependencies:
   cupertino_icons: ^1.0.8        # iOS-style icons
   fluttertoast: ^9.0.0           # Toast notifications
   http: ^1.6.0                  # HTTP requests
-  crypto: any                    # Cryptographic utilities
   intl: ^0.20.2                  # DateFormat for lib/pages/history_page.dart
-  flutter_map: ^8.2.2
-  latlong2: ^0.9.0
-
+  flutter_map: ^8.2.2            # Interactive map widget for Flutter
+  latlong2: ^0.9.0               # Latitude/longitude types for map/geolocation
+  geolocator: ^14.0.2            # Device location (GPS) and geocoding
+  vibration: ^3.1.4              # Control device vibration feedback
 
 dev_dependencies:
   flutter_test:

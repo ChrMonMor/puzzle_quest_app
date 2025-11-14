@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import 'on_run_page.dart';
+
 class ViewRunPage extends StatefulWidget {
   final Map<String, dynamic> run;
 
@@ -149,7 +151,15 @@ class _ViewRunPageState extends State<ViewRunPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OnRunPage(
+                        runId: widget.run['id'].toString(),
+                        run: widget.run,
+                      ),
+                    ),
+                  );
                 },
                 child: const Text('Start Run'),
               ),

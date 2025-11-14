@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../main.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -15,15 +16,13 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _joinDateController = TextEditingController();
 
-  List<Map<String, String>> _runs = [];
+  List<Map<String, dynamic>> _runs = [];
 
   @override
   void initState() {
     super.initState();
-    _usernameController.text = 'John Doe';
-    _joinDateController.text = 'January 1, 2024';
-    _loadProfile();
-    _generateDummyRuns();
+    _fetchUserProfile();
+    _fetchRuns();
   }
 
   @override
@@ -45,23 +44,47 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
     super.dispose();
   }
 
-  Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedUsername = prefs.getString('username');
-    final savedJoinDate = prefs.getString('joinDate');
-    final savedAvatar = prefs.getString('avatar');
+  // ---------------- API ----------------
 
-    setState(() {
-      _selectedAvatar = savedAvatar ?? _selectedAvatar;
-      _usernameController.text =
-      (savedUsername != null && savedUsername.isNotEmpty)
-          ? savedUsername
-          : _usernameController.text;
-      _joinDateController.text =
-      (savedJoinDate != null && savedJoinDate.isNotEmpty)
-          ? savedJoinDate
-          : _joinDateController.text;
-    });
+  Future<void> _fetchUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    print('Token: $token');
+
+    if (token == null) return; // User not logged in
+
+    http.Response? response;
+
+    try {
+      response = await http.post(
+        Uri.parse('http://pro-xi-mi-ty-srv/api/user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('Status code: ${response.statusCode}');
+      print('Body: ${response.body}');
+    } catch (e) {
+      print('API call failed: $e');
+      return;
+    }
+
+    // Now response is visible here
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      setState(() {
+        _usernameController.text = data['user_name'] ?? '';
+        _joinDateController.text = _formatJoinDate(data['user_joined']);
+        _selectedAvatar = 'assets/${data['user_img']}';
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load profile')),
+      );
+    }
   }
 
   Future<void> _refreshAvatar() async {
@@ -74,11 +97,43 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
     }
   }
 
+  Future<void> _fetchRuns() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return;
 
-  void _generateDummyRuns() {
-    _runs = List.generate(5, (i) => {'title': 'Run #${i + 1}'});
+    try {
+      final response = await http.post(
+        Uri.parse('http://pro-xi-mi-ty-srv/api/runs/my-runs'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Runs status code: ${response.statusCode}');
+      print('Runs body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['runs'] != null) {
+          setState(() {
+            _runs = List<Map<String, dynamic>>.from(data['runs']);
+          });
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load runs')),
+        );
+      }
+    } catch (e) {
+      print('Failed to fetch runs: $e');
+    }
   }
 
+
+  // ---------------- Helpers ----------------
   void _confirmDeleteRun(int index) {
     showDialog(
       context: context,
@@ -111,7 +166,7 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
       child: TextField(
         controller: controller,
         readOnly: true,
-        enabled: true, // ensures text always shows
+        enabled: true,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -125,6 +180,7 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
 
   Widget _buildRunCard(int index) {
     final run = _runs[index];
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -133,17 +189,54 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade400),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(run['title']!, style: const TextStyle(fontSize: 16)),
+          // Line 1: run_type_icon + run_type_name (font size 10)
           Row(
+            children: [
+              Text(
+                run['run_type']['run_type_icon'] ?? '',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                run['run_type']['run_type_name'] ?? '',
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+
+          // Line 2: run_title
+          Text(
+            run['run_title'] ?? '',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+
+          // Line 3: run_description
+          Text(
+            run['run_description'] ?? '',
+            style: const TextStyle(fontSize: 12, color: Colors.black87),
+          ),
+          const SizedBox(height: 4),
+
+          // Line 4: run_pin
+          Text(
+            'PIN: ${run['run_pin'] ?? ''}',
+            style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+          ),
+
+          // Edit/Delete buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.blueAccent),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Edit ${run['title']} (not implemented)')),
+                    SnackBar(content: Text('Edit ${run['run_title']} (not implemented)')),
                   );
                 },
               ),
@@ -158,12 +251,29 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
     );
   }
 
+  // ---------------- Utilities ----------------
+
+  String _formatJoinDate(String? dateString) {
+    if (dateString == null) return '';
+    final date = DateTime.tryParse(dateString);
+    if (date == null) return dateString;
+    return '${_monthName(date.month)} ${date.day}, ${date.year}';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      '', 'Jan', 'Feb', 'March', 'April', 'May', 'June',
+      'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month];
+  }
+
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

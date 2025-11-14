@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../common/base_navigation.dart';
 import '../common/session_manager.dart';
 import 'register_page.dart';
@@ -37,7 +38,18 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.statusCode == 200) {
-        // Use session manager for login
+        final data = jsonDecode(response.body);
+
+        // Save token to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        if (data['token'] != null) {
+          await prefs.setString('token', data['token']);
+        }
+
+        // Optional: save rememberMe flag
+        await prefs.setBool('rememberMe', _rememberMe);
+
+        // Continue with session manager if needed
         await SessionManager.login(rememberMe: _rememberMe);
 
         Fluttertoast.showToast(
@@ -66,7 +78,6 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = false);
     }
   }
-
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'E-Mail cannot be empty';

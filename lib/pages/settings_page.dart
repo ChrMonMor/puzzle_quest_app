@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../common/session_manager.dart';
 import '../pages/login_page.dart';
 
@@ -12,8 +14,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   String _selectedAvatar = 'assets/androgynousDefault.png';
-  String _username = 'John Doe';
-  String _email = 'john@example.com';
+  String _username = '';
+  String _email = '';
   bool _isDarkMode = false;
   bool _hasUnsavedChanges = false;
 
@@ -27,32 +29,121 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadUserProfile();
   }
 
-  Future<void> _loadSettings() async {
+  // ------------------- API: Load User Profile -------------------
+  Future<void> _loadUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _selectedAvatar = prefs.getString('avatar') ?? _selectedAvatar;
-      _username = prefs.getString('username') ?? _username;
-      _email = prefs.getString('email') ?? _email;
-      _isDarkMode = prefs.getBool('darkMode') ?? false;
-    });
+    final token = prefs.getString('token');
+    if (token == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://pro-xi-mi-ty-srv/api/user'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Fetch profile: ${response.statusCode}');
+      print(response.body);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          _username = data['user_name'] ?? '';
+          _email = data['user_email'] ?? '';
+          _selectedAvatar = 'assets/${data['user_img'] ?? 'androgynousDefault.png'}';
+          _isDarkMode = prefs.getBool('darkMode') ?? false;
+        });
+
+        // Store in prefs for ProfilePage sync
+        await prefs.setString('username', _username);
+        await prefs.setString('email', _email);
+        await prefs.setString('avatar', _selectedAvatar);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load user profile')),
+        );
+      }
+    } catch (e) {
+      print('Error loading user profile: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error connecting to server')),
+      );
+    }
   }
 
+  // ------------------- API: Update Profile -------------------
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('avatar', _selectedAvatar);
-    await prefs.setString('username', _username);
-    await prefs.setString('email', _email);
-    await prefs.setBool('darkMode', _isDarkMode);
-    setState(() => _hasUnsavedChanges = false);
+    final token = prefs.getString('token');
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are not logged in')),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings saved successfully!')),
+    final imageFileName = _selectedAvatar.split('/').last;
+
+    try {
+      final response = await http.patch(
+        Uri.parse('http://pro-xi-mi-ty-srv/api/update-profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'username': _username,
+          'image': imageFileName,
+        }),
+      );
+
+      print('Update profile: ${response.statusCode}');
+      print(response.body);
+
+      if (response.statusCode == 200) {
+        // Update prefs for consistency
+        await prefs.setString('username', _username);
+        await prefs.setString('avatar', _selectedAvatar);
+        await prefs.setString('email', _email);
+        await prefs.setBool('darkMode', _isDarkMode);
+
+        setState(() => _hasUnsavedChanges = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update profile (${response.statusCode})')),
+        );
+      }
+    } catch (e) {
+      print('Error updating profile: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error updating profile')),
+      );
+    }
+  }
+
+  // ------------------- Logout -------------------
+  Future<void> _logout() async {
+    await SessionManager.logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
     );
   }
 
+  // ------------------- UI Helpers -------------------
   void _showAvatarSelectionDialog() {
     showDialog(
       context: context,
@@ -115,16 +206,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _logout() async {
-    await SessionManager.logout();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
     );
   }
 
@@ -204,6 +285,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // ------------------- Build UI -------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,17 +339,14 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 16),
 
-          // Email Field
+          // Email Field (read-only if not editable)
           TextField(
             decoration: const InputDecoration(
               labelText: 'Email',
               border: OutlineInputBorder(),
             ),
             controller: TextEditingController(text: _email),
-            onChanged: (value) {
-              _email = value;
-              setState(() => _hasUnsavedChanges = true);
-            },
+            readOnly: true,
           ),
           const SizedBox(height: 16),
 
@@ -282,7 +361,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 32),
 
-          // Appearance Toggle (Pill Style)
+          // Appearance Toggle
           _buildAppearanceToggle(),
           const Divider(height: 32),
 
