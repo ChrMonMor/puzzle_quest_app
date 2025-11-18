@@ -5,7 +5,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:puzzle_quest_app/common/session_manager.dart';
 import 'package:vibration/vibration.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnRunPage extends StatefulWidget {
   final String runId;
@@ -25,6 +27,7 @@ class _OnRunPageState extends State<OnRunPage> {
   int _currentFlagIndex = 0;
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStream;
+  String? historyId;
 
   Timer? _timer;
   int _secondsElapsed = 0;
@@ -72,7 +75,15 @@ class _OnRunPageState extends State<OnRunPage> {
         } else {
           throw Exception('Unexpected JSON structure');
         }
-
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+        final h = await http.post(Uri.parse('http://pro-xi-mi-ty-srv/api/history/run/${widget.runId}/start'),
+          headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer $token'}
+        );
+        if (h.statusCode == 201) {
+          final hData = jsonDecode(h.body);
+          historyId = hData['history_id'].toString();
+        }
         final flags = (runData['flags'] ?? []);
         setState(() {
           _run = runData;
