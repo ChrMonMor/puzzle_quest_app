@@ -98,7 +98,7 @@ class _OnRunPageState extends State<OnRunPage> {
         var token = prefs.getString('token');
         if (token == null) {
           final guestToken = await _http.post(Uri.parse('$_baseUrl/api/guests/init'));
-          if (guestToken.statusCode == 200) {
+          if (guestToken.statusCode >= 200 && guestToken.statusCode < 300) {
             final gData = jsonDecode(guestToken.body);
             prefs.setString('token', gData['guest_uuid']);
             token = gData['guest_uuid'];
