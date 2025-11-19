@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
+import '../common/session_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -46,15 +47,13 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
 
   // ---------------- API ----------------
 
-  Future<void> _fetchUserProfile() async {
+  Future<void> _fetchUserProfile({bool retrying = false}) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    print('Token: $token');
-
-    if (token == null) return; // User not logged in
+    var token = prefs.getString('token');
+    token = await SessionManager.ensureGuestToken() ?? token;
+    if (token == null) return; // No token available
 
     http.Response? response;
-
     try {
       response = await http.post(
         Uri.parse('http://pro-xi-mi-ty-srv/api/user'),
@@ -64,25 +63,33 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
           'Authorization': 'Bearer $token',
         },
       );
-      print('Status code: ${response.statusCode}');
-      print('Body: ${response.body}');
+      print('Profile status: ${response.statusCode}');
+      print('Profile body: ${response.body}');
     } catch (e) {
       print('API call failed: $e');
       return;
     }
 
-    // Now response is visible here
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-
       setState(() {
         _usernameController.text = data['user_name'] ?? '';
         _joinDateController.text = _formatJoinDate(data['user_joined']);
         _selectedAvatar = 'assets/${data['user_img']}';
       });
+    } else if (response.statusCode == 401 && !retrying) {
+      // Token expired; refresh guest token then retry once
+      final newToken = await SessionManager.refreshExpiredToken();
+      if (newToken != null) {
+        await _fetchUserProfile(retrying: true);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session expired, unable to refresh')),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to load profile')),
+        SnackBar(content: Text('Failed to load profile (${response.statusCode})')),
       );
     }
   }

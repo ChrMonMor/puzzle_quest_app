@@ -126,17 +126,46 @@ class _OnRunPageState extends State<OnRunPage> {
             throw Exception('Failed to initialize guest token');
           }
         }
-        final startUrl = '$_baseUrl/api/history/run/${widget.runId}/start';
-        debugPrint('[OnRunPage] POST $startUrl');
-        debugPrint('[OnRunPage] Authorization: Bearer $token');
-        final h = await _http.post(
-          Uri.parse(startUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        );
+        Future<http.Response> doStart(String useToken) {
+          final startUrl = '$_baseUrl/api/history/run/${widget.runId}/start';
+          debugPrint('[OnRunPage] POST $startUrl');
+          debugPrint('[OnRunPage] Authorization: Bearer $useToken');
+          return _http.post(
+            Uri.parse(startUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $useToken',
+            },
+          );
+        }
+
+        var h = await doStart(token);
+        if (h.statusCode == 401) {
+          // Attempt token refresh (guest re-init) then retry once
+          debugPrint('[OnRunPage] 401 starting run - refreshing token');
+          final prefsRefresh = await SharedPreferences.getInstance();
+          await prefsRefresh.remove('token');
+          final guestUrl = '$_baseUrl/api/guests/init';
+          final guestTokenResp = await _http.post(
+            Uri.parse(guestUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          );
+            if (guestTokenResp.statusCode == 200 || guestTokenResp.statusCode == 201) {
+              final gData = jsonDecode(guestTokenResp.body);
+              final newToken = gData['guest_uuid'];
+              if (newToken is String && newToken.isNotEmpty) {
+                await prefsRefresh.setString('token', newToken);
+                token = newToken;
+                debugPrint('[OnRunPage] Retrying start with refreshed token');
+                h = await doStart(token);
+              }
+            }
+        }
+
         debugPrint('[OnRunPage] start run -> ${h.statusCode}');
         debugPrint('[OnRunPage] start run body: ${h.body}');
         if (h.statusCode == 201 || h.statusCode == 200) {
