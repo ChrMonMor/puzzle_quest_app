@@ -97,7 +97,7 @@ class _OnRunPageState extends State<OnRunPage> {
         final prefs = await SharedPreferences.getInstance();
         var token = prefs.getString('token');
         if (token == null) {
-          final guestToken = await _http.post(Uri.parse('$_baseUrl/api/auth/guest'));
+          final guestToken = await _http.post(Uri.parse('$_baseUrl/api/guests/init'));
           if (guestToken.statusCode == 200) {
             final gData = jsonDecode(guestToken.body);
             prefs.setString('token', gData['guest_uuid']);
