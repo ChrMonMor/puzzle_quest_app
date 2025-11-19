@@ -96,20 +96,12 @@ class _OnRunPageState extends State<OnRunPage> {
         }
         final prefs = await SharedPreferences.getInstance();
         var token = prefs.getString('token');
-        if (token == null || token.isEmpty) {
-          final guestResponse = await _http.post(
-            Uri.parse('$_baseUrl/api/guests/init'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          );
-          if (guestResponse.statusCode == 200) {
-            final gData = jsonDecode(guestResponse.body);
+        if (token == null) {
+          final guestToken = await _http.post(Uri.parse('$_baseUrl/api/guests/init'));
+          if (guestToken.statusCode == 200) {
+            final gData = jsonDecode(guestToken.body);
+            await prefs.setString('token', gData['guest_uuid']);
             token = gData['guest_uuid'];
-            await prefs.setString('token', token!);
-          } else {
-            throw Exception('Failed to initialize guest token');
           }
         }
         final h = await _http.post(
