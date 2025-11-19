@@ -111,7 +111,7 @@ class _ProfilePageState extends State<ProfilePage> with RouteAware {
 
     try {
       final response = await http.post(
-        Uri.parse('http://pro-xi-mi-ty-srv/api/runs/my-runs'),
+        Uri.parse('http://pro-xi-mi-ty-srv/api/runs/mine'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
