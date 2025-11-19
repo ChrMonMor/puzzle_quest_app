@@ -95,7 +95,15 @@ class _OnRunPageState extends State<OnRunPage> {
           throw Exception('Unexpected JSON structure');
         }
         final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('token');
+        var token = prefs.getString('token');
+        if (token == null) {
+          final guestToken = await _http.post(Uri.parse('$_baseUrl/api/auth/guest'));
+          if (guestToken.statusCode == 200) {
+            final gData = jsonDecode(guestToken.body);
+            prefs.setString('token', gData['guest_uuid']);
+            token = gData['guest_uuid'];
+          }
+        }
         final h = await _http.post(
           Uri.parse('$_baseUrl/api/history/run/${widget.runId}/start'),
           headers: {
