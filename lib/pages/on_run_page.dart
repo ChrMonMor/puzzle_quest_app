@@ -84,7 +84,6 @@ class _OnRunPageState extends State<OnRunPage> {
         },
       );
 
-      debugPrint('[OnRunPage] GET $url -> ${response.statusCode}');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         Map<String, dynamic> runData;
@@ -98,39 +97,30 @@ class _OnRunPageState extends State<OnRunPage> {
         final prefs = await SharedPreferences.getInstance();
         var token = prefs.getString('token');
         if (token == null || token.isEmpty) {
-          final guestUrl = '$_baseUrl/api/guests/init';
-          debugPrint('[OnRunPage] POST $guestUrl');
           final guestResponse = await _http.post(
-            Uri.parse(guestUrl),
+            Uri.parse('$_baseUrl/api/guests/init'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
           );
-          debugPrint('[OnRunPage] guest init -> ${guestResponse.statusCode}: ${guestResponse.body}');
-          if (guestResponse.statusCode == 200 || guestResponse.statusCode == 201) {
+          if (guestResponse.statusCode == 200) {
             final gData = jsonDecode(guestResponse.body);
-            token = (gData['guest_uuid'] ?? '').toString();
-            if (token.isEmpty) {
-              throw Exception('Guest init response missing guest_uuid');
-            }
-            await prefs.setString('token', token);
+            token = gData['guest_uuid'];
+            await prefs.setString('token', token!);
           } else {
             throw Exception('Failed to initialize guest token');
           }
         }
-        final startUrl = '$_baseUrl/api/history/run/${widget.runId}/start';
-        debugPrint('[OnRunPage] POST $startUrl (has token: ${token.isNotEmpty})');
         final h = await _http.post(
-          Uri.parse(startUrl),
+          Uri.parse('$_baseUrl/api/history/run/${widget.runId}/start'),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
         );
-        debugPrint('[OnRunPage] start run -> ${h.statusCode}: ${h.body}');
-        if (h.statusCode == 201 || h.statusCode == 200) {
+        if (h.statusCode == 201) {
           final hData = jsonDecode(h.body);
           historyId = hData['history']['history_id'].toString();
 
@@ -166,15 +156,6 @@ class _OnRunPageState extends State<OnRunPage> {
             if (match.isNotEmpty && match['history_flag_id'] != null) {
               _flagIndexToHistoryFlagId[i] = match['history_flag_id'] as int;
             }
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Failed to start run (status ${h.statusCode})'),
-              ),
-            );
           }
         }
         final flags = (runData['flags'] ?? []);
