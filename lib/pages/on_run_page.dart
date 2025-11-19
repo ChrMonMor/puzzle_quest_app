@@ -76,6 +76,7 @@ class _OnRunPageState extends State<OnRunPage> {
   Future<void> _fetchRun() async {
     final url = '$_baseUrl/api/runs/${widget.runId}';
     try {
+      debugPrint('[OnRunPage] GET $url');
       final response = await _http.get(
         Uri.parse(url),
         headers: {
@@ -83,6 +84,8 @@ class _OnRunPageState extends State<OnRunPage> {
           'Accept': 'application/json',
         },
       );
+      debugPrint('[OnRunPage] GET /runs -> ${response.statusCode}');
+      debugPrint('[OnRunPage] Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -96,23 +99,47 @@ class _OnRunPageState extends State<OnRunPage> {
         }
         final prefs = await SharedPreferences.getInstance();
         var token = prefs.getString('token');
+        debugPrint('[OnRunPage] Current token: ${token ?? "(none)"}');
         if (token == null) {
-          final guestToken = await _http.post(Uri.parse('$_baseUrl/api/guests/init'));
-          if (guestToken.statusCode == 200) {
+          final guestUrl = '$_baseUrl/api/guests/init';
+          debugPrint('[OnRunPage] POST $guestUrl (initializing guest)');
+          final guestToken = await _http.post(
+            Uri.parse(guestUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          );
+          debugPrint('[OnRunPage] guest init -> ${guestToken.statusCode}');
+          debugPrint('[OnRunPage] guest init body: ${guestToken.body}');
+          if (guestToken.statusCode == 200 || guestToken.statusCode == 201) {
             final gData = jsonDecode(guestToken.body);
-            await prefs.setString('token', gData['guest_uuid']);
             token = gData['guest_uuid'];
+            if (token == null || token.isEmpty) {
+              debugPrint('[OnRunPage] ERROR: guest_uuid is missing or empty!');
+              throw Exception('Guest init response missing guest_uuid');
+            }
+            await prefs.setString('token', token);
+            debugPrint('[OnRunPage] Guest token saved: $token');
+          } else {
+            debugPrint('[OnRunPage] ERROR: Failed to initialize guest token');
+            throw Exception('Failed to initialize guest token');
           }
         }
+        final startUrl = '$_baseUrl/api/history/run/${widget.runId}/start';
+        debugPrint('[OnRunPage] POST $startUrl');
+        debugPrint('[OnRunPage] Authorization: Bearer $token');
         final h = await _http.post(
-          Uri.parse('$_baseUrl/api/history/run/${widget.runId}/start'),
+          Uri.parse(startUrl),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
         );
-        if (h.statusCode == 201) {
+        debugPrint('[OnRunPage] start run -> ${h.statusCode}');
+        debugPrint('[OnRunPage] start run body: ${h.body}');
+        if (h.statusCode == 201 || h.statusCode == 200) {
           final hData = jsonDecode(h.body);
           historyId = hData['history']['history_id'].toString();
 
@@ -149,6 +176,17 @@ class _OnRunPageState extends State<OnRunPage> {
               _flagIndexToHistoryFlagId[i] = match['history_flag_id'] as int;
             }
           }
+        } else {
+          debugPrint('[OnRunPage] ERROR: Failed to start run - status ${h.statusCode}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Failed to start run (HTTP ${h.statusCode})'),
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
         }
         final flags = (runData['flags'] ?? []);
         setState(() {
@@ -181,6 +219,7 @@ class _OnRunPageState extends State<OnRunPage> {
         });
       }
     } catch (e) {
+      debugPrint('[OnRunPage] ERROR in _fetchRun: $e');
       setState(() {
         _loading = false;
         _error = true;
